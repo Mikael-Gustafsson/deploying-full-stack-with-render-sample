@@ -27,12 +27,33 @@ const getAllActivities = (req, res) => {
     .catch(err => console.log(err));
 }
 
-const getSingleActivity = (req, res) => {
-  fetch('https://www.boredapi.com/api/activity') // fetch activity from bored API - https://www.boredapi.com/about
-    .then(data => data.json()) // return a promise containing the response
-    .then(json => res.json(json)) // extract the JSON body content from the response (specifically the activity value) and sends it to the client
-    .catch((err) => console.log(err)) // log errors to the console
+const getSingleActivity = async (req, res) => {
+  try {
+    const response = await fetch('https://www.boredapi.com/api/activity');
+    
+    if (!response.ok) {
+      throw new Error(`Bored API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.activity) {
+      throw new Error('No activity found in API response');
+    }
+
+    // Spara till din databas:
+    const insertString = 'INSERT INTO "my_activities" (activity) VALUES ($1) RETURNING *';
+    const result = await pool.query(insertString, [data.activity]);
+
+    // Skicka tillbaka det som svar till klienten
+    res.status(200).json(result.rows[0]);
+
+  } catch (error) {
+    console.error('Error fetching and inserting activity:', error.message);
+    res.status(500).json({ error: 'Failed to fetch and save new activity' });
+  }
 }
+
 
 const addActivityToDB = (req, res) => {
   const activity = [ req.body.activity ]
